@@ -9,45 +9,65 @@ namespace CSharp.Multithread.Matrix.Multiply
 {
     public class Program
     {
-        private static void Main(string[] args)
+        const int repeat = 3;
+        const int size = 1000;
+
+        static MatrixBase co1 = new ColumnOptimizedMatrix(size, size);
+        static MatrixBase ro1 = new RowOptimizedMatrix(size, size);
+        static MatrixBase co2 = new ColumnOptimizedMatrix(size, size);
+        static MatrixBase ro2 = new RowOptimizedMatrix(size, size);
+
+        static MatrixBase aco1 = new ColumnOptimizedMatrix(size, size);
+        static MatrixBase aro1 = new RowOptimizedMatrix(size, size);
+
+        public static void Initialize()
         {
-            const int repeat = 3;
-            const int size = 500;
+            Console.WriteLine("Initializing");
+            co1.RandomFill(0, size);
+            co2.RandomFill(0, size);
+            ro1.RandomFill(0, size);
+            ro2.RandomFill(0, size);
+            Console.WriteLine("Complete");
+        }
 
+        public static double RunTest(IMatrix m1, IMatrix m2, IMatrix m3)
+        {
             var allTimes = new List<long>();
-
-            var m1 = new ColumnOptimizedMatrix(size, size);
-            var m2 = new RowOptimizedMatrix(size, size);
-
-            var m3 = new ColumnOptimizedMatrix(size, size);
-
             for (int i = 0; i < repeat; i++)
             {
-                var swrf = Stopwatch.StartNew();
-                m1.RandomFill(0, 100);
-                m2.RandomFill(0, 100);
-                swrf.Stop();
-                Console.WriteLine($"Fill: {swrf.ElapsedMilliseconds:#,0}");
-
-                Console.WriteLine("-");
-
                 var sw = Stopwatch.StartNew();
                 MatrixBase.MatrixMultiply(m1, m2, m3);
                 sw.Stop();
 
+                Console.WriteLine($"ms: {sw.ElapsedMilliseconds:#,0.00}");
+
                 allTimes.Add(sw.ElapsedMilliseconds);
-
-                Console.WriteLine($"Mult: {sw.ElapsedMilliseconds:#,0}");
             }
+            return allTimes.Average();
+        }
 
-            var average = allTimes.Average();
+        private static void RunATest(IMatrix m1, IMatrix m2, IMatrix m3, string message)
+        {
+            Console.WriteLine($"Running: {message}", message);
+            var allTimes = new List<long>();
+            var average = RunTest(m1, m2, m3);
+            Console.WriteLine($"{message}: {average:#,0.00}");
+        }
 
-            Console.WriteLine($"Average: {average:#,0.00}");
+        private static void Main(string[] args)
+        {
+            Initialize();
 
-            //Console.WriteLine();
+            RunATest(co1, ro1, aco1, "Optimized input and column output");
+            RunATest(co1, ro1, aro1, "Optimized input and row output");
 
-            //Console.WriteLine(m3.ToString());
-            //Thread.Sleep(2000);
+            RunATest(co1, co2, aco1, "Non-Optimized, input 2 matrixes by column and column output");
+            RunATest(co1, co2, aro1, "Non-Optimized, input 2 matrixes by column and row output");
+
+            RunATest(ro1, ro2, aco1, "Non-Optimized, input 2 matrixes by row and column output");
+            RunATest(ro1, ro2, aro1, "Non-Optimized, input 2 matrixes by row and row output");
+
+            Console.WriteLine("Press any key...");
             Console.ReadKey();
         }
     }
