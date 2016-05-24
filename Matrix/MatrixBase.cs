@@ -79,7 +79,7 @@ namespace Free.Matrix
                 MaxDegreeOfParallelism = Environment.ProcessorCount * 4
             };
 
-            Parallel.For(0, m1.Rows, parallelOptions1, (row) =>
+            Parallel.For(0, m1.Rows, parallelOptions2, (row) =>
             {
                 Parallel.For(0, m2.Columns, parallelOptions2, (cola) =>
                 {

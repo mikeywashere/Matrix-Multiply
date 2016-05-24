@@ -61,11 +61,11 @@ namespace CSharp.Multithread.Matrix.Multiply
             RunATest(co1, ro1, aco1, "Optimized input and column output");
             RunATest(co1, ro1, aro1, "Optimized input and row output");
 
-            RunATest(co1, co2, aco1, "Non-Optimized, input 2 matrixes by column and column output");
-            RunATest(co1, co2, aro1, "Non-Optimized, input 2 matrixes by column and row output");
+            RunATest(co1, co2, aco1, "Non-Optimized, input 2 matrices by column and column output");
+            RunATest(co1, co2, aro1, "Non-Optimized, input 2 matrices by column and row output");
 
-            RunATest(ro1, ro2, aco1, "Non-Optimized, input 2 matrixes by row and column output");
-            RunATest(ro1, ro2, aro1, "Non-Optimized, input 2 matrixes by row and row output");
+            RunATest(ro1, ro2, aco1, "Non-Optimized, input 2 matrices by row and column output");
+            RunATest(ro1, ro2, aro1, "Non-Optimized, input 2 matrices by row and row output");
 
             Console.WriteLine("Press any key...");
             Console.ReadKey();
