@@ -15,5 +15,7 @@ namespace Free.Matrix
             get { return data[(row * columns) + column]; }
             set { data[(row * columns) + column] = value; }
         }
+
+        public override MatrixType Type => MatrixType.ColumnOptimized;
     }
 }

@@ -6,21 +6,26 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections;
-using System.Linq.Expressions;
 
 namespace Free.Matrix
 {
     /// <summary>
-    /// Base class for matrix - row optimized
+    /// This class is where all of the non optimmized/performant matrix code lives.
+    /// This is where we make the code work, then we place optimized versions of
+    /// that code in the "shipping" versions of the code. Tests are run against all
+    /// of the overridden methods of any inherited class.
+    /// 
+    /// Nothing should inherit from this class - this is an example of how to do
+    /// matrix math correctly.
     /// </summary>
-    public class MatrixBase : IMatrix
+    public class MatrixBaseNonPerformant : IMatrix
     {
         protected readonly float[] data;
         protected readonly int rows;
         protected readonly int columns;
         protected readonly Dictionary<MatrixNormType, Func<float>> NormVTable = new Dictionary<MatrixNormType, Func<float>>();
 
-        public MatrixBase(int x, int y)
+        public MatrixBaseNonPerformant(int x, int y)
         {
             data = new float[x * y];
             rows = x;
@@ -29,7 +34,7 @@ namespace Free.Matrix
             NormVTable.Add(MatrixNormType.Two_Norm, TwoNorm);
         }
 
-        public virtual MatrixType Type => MatrixType.RowOptimized;
+        public MatrixType Type => MatrixType.NonPerormant;
 
         public float this[int index]
         {
@@ -72,7 +77,10 @@ namespace Free.Matrix
                     m[row, column] = this[row, column];
         }
 
-
+        /// <summary>
+        /// Fill a matrix with a value
+        /// </summary>
+        /// <param name="value">value to fill the matrix with</param>
         public void Fill(float value)
         {
             using (var rand = new ThreadLocal<Random>(() => new Random(Guid.NewGuid().GetHashCode()), true))
@@ -87,33 +95,46 @@ namespace Free.Matrix
         /// <summary>
         /// Matrix Multiple
         /// </summary>
-        /// <param name="m">Row changes fast for this matrix</param>
-        public virtual IMatrix Multiply(IMatrix m)
+        /// <param name="m2">Row changes fast for this matrix</param>
+        public virtual IMatrix Multiply(IMatrix m2)
         {
-            IMatrix m3 = new ColumnOptimizedMatrix(m.Columns, m.Rows);
-            Parallel.For(0, this.Rows, (row) =>
+            IMatrix m3 = new MatrixBase(m2.Columns, m2.Rows);
+            for (int row = 0; row < this.rows; row++)
             {
                 var tempc = (row * this.columns);
-                for (int cola = 0; cola < m.Columns; cola++)
+                for (int cola = 0; cola < m2.Columns; cola++)
                 {
                     float val = 0;
-                    var tempa = (row * this.columns);
-                    var tempb = (cola * rows);
                     for (int colb = 0; colb < this.Columns; colb++)
                     {
-                        val += this[tempa] * m[tempb];
-                        tempa++;
-                        tempb++;
+                        val += this[row, colb] * m2[colb, cola];
                     }
                     m3[tempc + cola] = val;
                 }
-            });
+            }
             return m3;
         }
 
         public virtual IMatrix Multiply2(IMatrix m2)
         {
-            return m2;
+            IMatrix m3 = new MatrixBase(m2.Columns, m2.Rows);
+            for (int row = 0; row < this.rows; row++)
+            {
+                var tempc = (row * this.columns);
+                for (int cola = 0; cola < m2.Columns; cola++)
+                {
+                    float val = 0;
+                    for (int colb = 0; colb < this.Columns; colb++)
+                    {
+                        //(column * rows) + row <-- row optimized
+                        //(row * columns) + column <-- col optimized
+                        // both the same non-optimized so access is the same
+                        val += this[(colb * rows) + row] * m2[(cola * columns) + colb];
+                    }
+                    m3[tempc + cola] = val;
+                }
+            }
+            return m3;
         }
 
         /// <summary>
@@ -123,7 +144,7 @@ namespace Free.Matrix
         private float OneNorm()
         {
             var results = new ConcurrentBag<float>();
-            Parallel.For(0, columns, (column) =>
+            for (int column = 0; column < columns; column++)
             {
                 var value = default(float);
                 for (int row = 0; row < rows; row++)
@@ -131,7 +152,7 @@ namespace Free.Matrix
                     value += Math.Abs(this[column, row]);
                 }
                 results.Add(value);
-            });
+            }
             return results.Max();
         }
 
@@ -142,7 +163,7 @@ namespace Free.Matrix
         private float TwoNorm()
         {
             var results = new ConcurrentBag<float>();
-            Parallel.For(0, rows, (row) =>
+            for (int row = 0; row < rows; row++)
             {
                 var value = default(float);
                 for (int column = 0; column < rows; column++)
@@ -150,7 +171,7 @@ namespace Free.Matrix
                     value += Math.Abs(this[column, row]);
                 }
                 results.Add(value);
-            });
+            }
             return results.Max();
         }
 
