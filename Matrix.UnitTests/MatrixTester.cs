@@ -57,7 +57,7 @@ namespace Matrix.UnitTests
             }
         }
 
-        private static IMatrix TestValues(MatrixType type)
+        private static MatrixBase TestValues(MatrixType type)
         {
             var matrix = MatrixFactory.Create(10, 10, type);
             for (int x = 0; x < 10; x++)
@@ -76,41 +76,53 @@ namespace Matrix.UnitTests
             return matrix;
         }
 
+        private static string expected =@"0: 285.0000,330.0000,375.0000,420.0000,465.0000,510.0000,555.0000,600.0000,645.0000,690.0000
+1: 330.0000,385.0000,440.0000,495.0000,550.0000,605.0000,660.0000,715.0000,770.0000,825.0000
+2: 375.0000,440.0000,505.0000,570.0000,635.0000,700.0000,765.0000,830.0000,895.0000,960.0000
+3: 420.0000,495.0000,570.0000,645.0000,720.0000,795.0000,870.0000,945.0000,1,020.0000,1,095.0000
+4: 465.0000,550.0000,635.0000,720.0000,805.0000,890.0000,975.0000,1,060.0000,1,145.0000,1,230.0000
+5: 510.0000,605.0000,700.0000,795.0000,890.0000,985.0000,1,080.0000,1,175.0000,1,270.0000,1,365.0000
+6: 555.0000,660.0000,765.0000,870.0000,975.0000,1,080.0000,1,185.0000,1,290.0000,1,395.0000,1,500.0000
+7: 600.0000,715.0000,830.0000,945.0000,1,060.0000,1,175.0000,1,290.0000,1,405.0000,1,520.0000,1,635.0000
+8: 645.0000,770.0000,895.0000,1,020.0000,1,145.0000,1,270.0000,1,395.0000,1,520.0000,1,645.0000,1,770.0000
+9: 690.0000,825.0000,960.0000,1,095.0000,1,230.0000,1,365.0000,1,500.0000,1,635.0000,1,770.0000,1,905.0000";
         /// <summary>
-        /// 0: 285.0000,330.0000,375.0000,420.0000,465.0000,510.0000,555.0000,600.0000,645.0000,690.0000,
-        /// 1: 330.0000,385.0000,440.0000,495.0000,550.0000,605.0000,660.0000,715.0000,770.0000,825.0000,
-        /// 2: 375.0000,440.0000,505.0000,570.0000,635.0000,700.0000,765.0000,830.0000,895.0000,960.0000,
-        /// 3: 420.0000,495.0000,570.0000,645.0000,720.0000,795.0000,870.0000,945.0000,1,020.0000,1,095.0000,
-        /// 4: 465.0000,550.0000,635.0000,720.0000,805.0000,890.0000,975.0000,1,060.0000,1,145.0000,1,230.0000,
-        /// 5: 510.0000,605.0000,700.0000,795.0000,890.0000,985.0000,1,080.0000,1,175.0000,1,270.0000,1,365.0000,
-        /// 6: 555.0000,660.0000,765.0000,870.0000,975.0000,1,080.0000,1,185.0000,1,290.0000,1,395.0000,1,500.0000,
-        /// 7: 600.0000,715.0000,830.0000,945.0000,1,060.0000,1,175.0000,1,290.0000,1,405.0000,1,520.0000,1,635.0000,
-        /// 8: 645.0000,770.0000,895.0000,1,020.0000,1,145.0000,1,270.0000,1,395.0000,1,520.0000,1,645.0000,1,770.0000,
-        /// 9: 690.0000,825.0000,960.0000,1,095.0000,1,230.0000,1,365.0000,1,500.0000,1,635.0000,1,770.0000,1,905.0000,
+        /// Test the matrix multiply method
         /// </summary>
         [TestMethod]
         public void TestMultiply()
         {
-            foreach (var m1 in MatrixFactory.Create(10, 10))
+            foreach (var type1 in MatrixFactory.Types())
             {
-                var m2 = MatrixFactory.CreateCopy(m1);
-                for (int x = 0; x < 10; x++)
-                    for (int y = 0; y < 10; y++)
+                var m1 = MatrixFactory.Create(10, 10, type1);
+                MatrixBase m2 = null;
+                foreach (var type2 in MatrixFactory.Types())
+                {
+                    m2 = MatrixFactory.Create(10, 10, type2);
+                    for (int x = 0; x < 10; x++)
+                        for (int y = 0; y < 10; y++)
+                        {
+                            m1[x, y] = m2[x, y] = x + y;
+                        }
+
+
+                    var m3 = m1.Multiply(m2, MatrixType.NonOptimized);
+
+                    var test = m3.AsText();
+                    if (test != expected)
                     {
-                        m1[x, y] = m2[x, y] = x + y;
+                        Assert.Fail("(test != expected) in " + m1.Type + " * " + m2.Type);
                     }
-
-                var m3 = m1.Multiply(m2);
-
-                var test = m3.ToString();
+                }
             }
         }
 
         [TestMethod]
         public void TestOneNorm()
         {
-            foreach (var m1 in MatrixFactory.Create(10, 10))
+            foreach (var type in MatrixFactory.Types())
             {
+                var m1 = MatrixFactory.Create(10, 10, type);
                 var m = TestValues(m1.Type);
                 var onv = m.Norm(MatrixNormType.One_Norm);
                 m = m.Add(1);
@@ -122,15 +134,16 @@ namespace Matrix.UnitTests
         [TestMethod]
         public void TestScalarMultiply()
         {
-            foreach (var m in MatrixFactory.Create(10, 10))
+            foreach (var type in MatrixFactory.Types())
             {
+                var m = MatrixFactory.Create(10, 10, type);
                 m.Fill(10);
                 var m2 = m.Multiply(10);
                 for (int column = 0; column < m.Columns; column++)
                     for (int row = 0; row < m.Rows; row++)
-                        if (m2[column, row] != 10 * 10)
+                        if (m2[column, row] != m.Rows * m.Columns)
                         {
-                            Assert.Fail("OOPS");
+                            Assert.Fail("Failed in " + m.Type);
                         }
             }
         }
@@ -138,20 +151,22 @@ namespace Matrix.UnitTests
         [TestMethod]
         public void TestMultiplyingByEachType()
         {
-            foreach (var m in MatrixFactory.Create(10, 10))
+            foreach (var typeX in MatrixFactory.Types())
             {
+                var m = MatrixFactory.Create(10, 10, typeX);
                 m.Fill(10);
-                foreach (var n in MatrixFactory.Create(10, 10))
+                foreach (var typeY in MatrixFactory.Types())
                 {
+                    var n = MatrixFactory.Create(10, 10, typeY);
                     n.Fill(11);
 
-                    var x = m.Multiply(n);
+                    var x = m.Multiply(n, MatrixType.NonOptimized);
 
-                    foreach (var y in x)
+                    for (int i = 0; i < x.Rows * x.Columns; i++)
                     {
-                        if ((float)y != 1100.0000)
+                        if (x[i] != 1100.0000)
                         {
-                            Assert.Fail("y = " + y.ToString());
+                            Assert.Fail("i = " + i + " x[i] = " + x[i] + " in " + m.Type + " * " + n.Type);
                         }
                     }
                 }

@@ -9,7 +9,7 @@ namespace Free.Matrix
 {
     public static class MatrixExtensions
     {
-        public static void RandomFill(this IMatrix matrix, double from, double to)
+        public static void RandomFill(this MatrixBase matrix, double from, double to)
         {
             using (var rand = new ThreadLocal<Random>(() => new Random(Guid.NewGuid().GetHashCode()), true))
             {

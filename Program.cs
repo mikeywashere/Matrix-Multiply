@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Linq.Expressions;
 
 namespace CSharp.Multithread.Matrix.Multiply
 {
@@ -12,32 +13,17 @@ namespace CSharp.Multithread.Matrix.Multiply
         const int repeat = 3;
         const int size = 1000;
 
-        static IMatrix co1 = new MatrixBaseNonPerformant(size, size);
-        static IMatrix ro1 = new MatrixBaseNonPerformant(size, size);
-        static MatrixBase co2 = new ColumnOptimizedMatrix(size, size);
-        static MatrixBase ro2 = new RowOptimizedMatrix(size, size);
-
-        static MatrixBase aco1 = new ColumnOptimizedMatrix(size, size);
-        static MatrixBase aro1 = new RowOptimizedMatrix(size, size);
-
-        public static void Initialize()
+        public static double RunTest(MatrixBase m1, MatrixBase m2, MatrixType type)
         {
-            Console.WriteLine("Initializing");
-            co1.RandomFill(0, size);
-            co2.RandomFill(0, size);
-            ro1.RandomFill(0, size);
-            ro2.RandomFill(0, size);
-            Console.WriteLine("Complete");
-        }
-
-        public static double RunTest(IMatrix m1, IMatrix m2, out IMatrix m3)
-        {
-            m3 = new MatrixBaseNonPerformant(1, 1);
             var allTimes = new List<long>();
             for (int i = 0; i < repeat; i++)
             {
                 var sw = Stopwatch.StartNew();
-                m3 = m1.Multiply(m2);
+
+                MatrixBase result = null;
+
+                result = m1.Multiply(m2, type);
+
                 sw.Stop();
 
                 Console.WriteLine($"ms: {sw.ElapsedMilliseconds:#,0.00}");
@@ -47,56 +33,74 @@ namespace CSharp.Multithread.Matrix.Multiply
             return allTimes.Average();
         }
 
-        public static double RunTest2(IMatrix m1, IMatrix m2, out IMatrix m3)
+        private static double RunATest(MatrixBase m1, MatrixBase m2, MatrixType type, string message)
         {
-            m3 = new MatrixBaseNonPerformant(1, 1);
+            Console.WriteLine($"Running: {message}");
             var allTimes = new List<long>();
-            for (int i = 0; i < repeat; i++)
-            {
-                var sw = Stopwatch.StartNew();
-                m3 = m1.Multiply2(m2);
-                sw.Stop();
-
-                Console.WriteLine($"ms: {sw.ElapsedMilliseconds:#,0.00}");
-
-                allTimes.Add(sw.ElapsedMilliseconds);
-            }
-            return allTimes.Average();
+            var average = Math.Round(RunTest(m1, m2, type), 2);
+            Console.WriteLine($"{message}: {average:#,0.00}\r\n");
+            return average;
         }
 
-        private static void RunATest(IMatrix m1, IMatrix m2, string message)
-        {
-            Console.WriteLine($"1: Running: {message}", message);
-            var allTimes = new List<long>();
-            IMatrix results;
-            var average = RunTest(m1, m2, out results);
-            Console.WriteLine($"{message}: {average:#,0.00}");
-        }
-
-        private static void RunATest2(IMatrix m1, IMatrix m2, string message)
-        {
-            Console.WriteLine($"2: Running: {message}", message);
-            var allTimes = new List<long>();
-            IMatrix results;
-            var average = RunTest2(m1, m2, out results);
-            Console.WriteLine($"{message}: {average:#,0.00}");
-        }
+        private static Dictionary<string, double> scores = new Dictionary<string, double>();
 
         private static void Main(string[] args)
         {
-            Initialize();
+            Stopwatch sw = Stopwatch.StartNew();
+            var mm1 = MatrixFactory.Create(1000, 1000, MatrixType.ColumnOptimized);
+            mm1.RandomFill(size, size * 2);
 
-            RunATest(co1, ro1, "1");
-            RunATest2(co1, ro1, "2");
-            //RunATest(co1, ro1, aro1, "Optimized input and row output");
+            var mm2 = MatrixFactory.Create(1000, 1000, MatrixType.RowOptimized);
 
-            //RunATest(co1, co2, aco1, "Non-Optimized, input 2 matrices by column and column output");
-            //RunATest(co1, co2, aro1, "Non-Optimized, input 2 matrices by column and row output");
+            mm1.CopyTo(mm2);
 
-            //RunATest(ro1, ro2, aco1, "Non-Optimized, input 2 matrices by row and column output");
-            //RunATest(ro1, ro2, aro1, "Non-Optimized, input 2 matrices by row and row output");
+            sw.Stop();
+            Console.WriteLine("Step 1=" + sw.ElapsedMilliseconds);
+            sw.Restart();
 
-            //Console.WriteLine("Press any key...");
+            mm1.Multiply(mm2, MatrixType.NonOptimized);
+            sw.Stop();
+            Console.WriteLine("Step 2=" + sw.ElapsedMilliseconds);
+            
+
+            var types = from item in MatrixFactory.Types()
+                        // where item != MatrixType.NonOptimized 
+                        select item;
+            foreach (var type1 in types)
+            {
+                var m1 = MatrixFactory.Create(size, size, type1);
+                foreach (var type2 in types)
+                {
+                    var m2 = MatrixFactory.Create(size, size, type2);
+                    foreach (var type in types)
+                    {
+                        MatrixType t = MatrixType.NonOptimized;
+
+                        var key = $"{t} = {m1.Type} * {m2.Type}";
+                        if (scores.ContainsKey(key))
+                            continue;
+
+                        m1.RandomFill(0, Convert.ToDouble(size));
+                        m2.RandomFill(0, Convert.ToDouble(size));
+                        
+                        var avg = RunATest(m1, m2, t, $"{m1.Type} * {m2.Type} = {type}");
+
+                        scores.Add(key, avg);
+                    }
+                }
+            }
+
+            Console.WriteLine("\r\n----------------------------------------\r\nScore:\r\n");
+            var l = from item in scores orderby item.Value select item;
+
+            foreach (var item in l)
+            {
+                Console.WriteLine($"{item.Key} - {item.Value:#,0.00}");
+            }
+
+            Console.WriteLine("\r\n----------------------------------------\r\n");
+
+            Console.WriteLine("Press any key...");
             Console.ReadKey();
         }
     }

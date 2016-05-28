@@ -34,9 +34,9 @@ namespace Free.Matrix
         /// </summary>
         /// <param name="m"></param>
         /// <returns></returns>
-        IMatrix Multiply(IMatrix m);
+        IMatrix Multiply(IMatrix m, MatrixType type);
 
-        IMatrix Multiply2(IMatrix m2);
+        IMatrix Multiply(RowOptimizedMatrix m, MatrixType type = MatrixType.NonOptimized);
 
         /// <summary>
         /// Fill a matrix with a value

@@ -11,58 +11,70 @@ using System.Linq.Expressions;
 namespace Free.Matrix
 {
     /// <summary>
-    /// Base class for matrix - row optimized
+    /// This class is where all of the non optimmized/performant matrix code lives.
+    /// This is where we make the code work, then we place optimized versions of
+    /// that code in the "shipping" versions of the code. Tests are run against all
+    /// of the overridden methods of any inherited class.
+    /// 
+    /// Nothing should inherit from this class - this is an example of how to do
+    /// matrix math correctly.
     /// </summary>
-    public class MatrixBase : IMatrix
+    public class MatrixBase
     {
-        protected readonly float[] data;
-        protected readonly int rows;
-        protected readonly int columns;
+        public readonly float[] Data;
+        protected int rows;
+        protected int columns;
         protected readonly Dictionary<MatrixNormType, Func<float>> NormVTable = new Dictionary<MatrixNormType, Func<float>>();
 
-        public MatrixBase(int x, int y)
+        public MatrixBase()
         {
-            data = new float[x * y];
-            rows = x;
-            columns = y;
             NormVTable.Add(MatrixNormType.One_Norm, OneNorm);
             NormVTable.Add(MatrixNormType.Two_Norm, TwoNorm);
         }
 
-        public virtual MatrixType Type => MatrixType.RowOptimized;
-
-        public float this[int index]
+        public MatrixBase(int x, int y) : this()
         {
-            get { return data[index]; }
-            set { data[index] = value; }
+            Data = new float[x * y];
+            rows = x;
+            columns = y;
+        }
+
+        public virtual MatrixType Type => MatrixType.NonOptimized;
+
+        public virtual float this[int index]
+        {
+            get { return Data[index]; }
+            set { Data[index] = value; }
         }
 
         public virtual float this[int row, int column]
         {
-            get { return data[(column * rows) + row]; }
-            set { data[(column * rows) + row] = value; }
+            get { return Data[(column * rows) + row]; }
+            set { Data[(column * rows) + row] = value; }
         }
 
-        public int Rows => rows;
+        public virtual int Rows => rows;
 
-        public int Columns => columns;
+        public virtual int Columns => columns;
 
-        public override string ToString()
+        public string AsText()
         {
             var sb = new StringBuilder();
-            for (int row = 0; row < Rows; row++)
+            for (int row = 0; row < rows; row++)
             {
                 sb.AppendFormat("{0}: ", row);
                 for (int col = 0; col < Columns; col++)
                 {
-                    sb.AppendFormat("{0:#,0.0000},", this[row, col]);
+                    if (row + col > 0 && col < columns && col > 0) sb.Append(",");
+                    sb.AppendFormat("{0:#,0.0000}", this[row, col]);
                 }
-                sb.AppendLine();
+                if (row + 1 != rows)
+                    sb.AppendLine();
             }
             return sb.ToString();
         }
 
-        public void CopyTo(IMatrix m)
+        public virtual void CopyTo(MatrixBase m)
         {
             if (m == null)
                 throw new ArgumentNullException(nameof(m));
@@ -72,14 +84,17 @@ namespace Free.Matrix
                     m[row, column] = this[row, column];
         }
 
-
-        public void Fill(float value)
+        /// <summary>
+        /// Fill a matrix with a value
+        /// </summary>
+        /// <param name="value">value to fill the matrix with</param>
+        public virtual void Fill(float value)
         {
             using (var rand = new ThreadLocal<Random>(() => new Random(Guid.NewGuid().GetHashCode()), true))
             {
-                Parallel.For(0, data.Length, (i) =>
+                Parallel.For(0, rows * columns, (i) =>
                 {
-                    data[i] = value;
+                    this[i] = value;
                 });
             }
         }
@@ -88,42 +103,33 @@ namespace Free.Matrix
         /// Matrix Multiple
         /// </summary>
         /// <param name="m">Row changes fast for this matrix</param>
-        public virtual IMatrix Multiply(IMatrix m)
+        /// <param name="type">todo: describe type parameter on Multiply</param>
+        public virtual MatrixBase Multiply(MatrixBase m, MatrixType type = MatrixType.NonOptimized)
         {
-            IMatrix m3 = new ColumnOptimizedMatrix(m.Columns, m.Rows);
-            Parallel.For(0, this.Rows, (row) =>
+            var result = MatrixFactory.Create(m.Columns, m.Rows, type);
+            for (int row = 0; row < rows; row++)
             {
-                var tempc = (row * this.columns);
-                for (int cola = 0; cola < m.Columns; cola++)
+                for (int column = 0; column < columns; column++)
                 {
                     float val = 0;
-                    var tempa = (row * this.columns);
-                    var tempb = (cola * rows);
-                    for (int colb = 0; colb < this.Columns; colb++)
+                    for (int index = 0; index < columns; index++)
                     {
-                        val += this[tempa] * m[tempb];
-                        tempa++;
-                        tempb++;
+                        val += this[row, index] * m[index, column];
                     }
-                    m3[tempc + cola] = val;
+                    result[row, column] = val;
                 }
-            });
-            return m3;
-        }
-
-        public virtual IMatrix Multiply2(IMatrix m2)
-        {
-            return m2;
+            }
+            return result;
         }
 
         /// <summary>
         /// Compute the 1-norm of the matrix
         /// </summary>
         /// <returns>1-norm</returns>
-        private float OneNorm()
+        protected virtual float OneNorm()
         {
             var results = new ConcurrentBag<float>();
-            Parallel.For(0, columns, (column) =>
+            for (int column = 0; column < columns; column++)
             {
                 var value = default(float);
                 for (int row = 0; row < rows; row++)
@@ -131,7 +137,7 @@ namespace Free.Matrix
                     value += Math.Abs(this[column, row]);
                 }
                 results.Add(value);
-            });
+            }
             return results.Max();
         }
 
@@ -139,10 +145,10 @@ namespace Free.Matrix
         /// Compute the 2-norm of the matrix
         /// </summary>
         /// <returns>2-norm</returns>
-        private float TwoNorm()
+        protected virtual float TwoNorm()
         {
             var results = new ConcurrentBag<float>();
-            Parallel.For(0, rows, (row) =>
+            for (int row = 0; row < rows; row++)
             {
                 var value = default(float);
                 for (int column = 0; column < rows; column++)
@@ -150,7 +156,7 @@ namespace Free.Matrix
                     value += Math.Abs(this[column, row]);
                 }
                 results.Add(value);
-            });
+            }
             return results.Max();
         }
 
@@ -169,9 +175,9 @@ namespace Free.Matrix
         /// </summary>
         /// <param name="value">Value to multiply</param>
         /// <returns>Matrix multiplication results</returns>
-        public IMatrix Multiply(float value)
+        public virtual MatrixBase Multiply(float value)
         {
-            IMatrix result = new ColumnOptimizedMatrix(rows, columns);
+            MatrixBase result = new ColumnOptimizedMatrix(rows, columns);
             for (int row = 0; row < rows; row++)
                 for (int column = 0; column < columns; column++)
                     result[column, row] = this[column, row] * value;
@@ -183,9 +189,9 @@ namespace Free.Matrix
         /// </summary>
         /// <param name="value">Value to add</param>
         /// <returns>Matrix addition results</returns>
-        public IMatrix Add(float value)
+        public virtual MatrixBase Add(float value)
         {
-            IMatrix result = new ColumnOptimizedMatrix(rows, columns);
+            MatrixBase result = new ColumnOptimizedMatrix(rows, columns);
             for (int row = 0; row < rows; row++)
                 for (int column = 0; column < columns; column++)
                     result[column, row] = this[column, row] + value;
@@ -194,7 +200,7 @@ namespace Free.Matrix
 
         public IEnumerator GetEnumerator()
         {
-            return data.GetEnumerator();
+            return Data.GetEnumerator();
         }
     }
 }
