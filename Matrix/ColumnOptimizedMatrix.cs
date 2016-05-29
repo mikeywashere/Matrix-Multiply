@@ -6,7 +6,7 @@ namespace Free.Matrix
 {
     public class ColumnOptimizedMatrix : MatrixBase
     {
-        public ColumnOptimizedMatrix(int x, int y) : base(x, y)
+        public ColumnOptimizedMatrix(int columns, int rows) : base(columns, rows)
         {
         }
 
@@ -18,71 +18,19 @@ namespace Free.Matrix
 
         public override MatrixType Type => MatrixType.ColumnOptimized;
 
-        public override MatrixBase Multiply(MatrixBase m, MatrixType type = MatrixType.NonOptimized)
+        public override MatrixBase Multiply(MatrixBase m, MatrixType type = MatrixType.ColumnOptimized)
         {
-            if (m.Type == MatrixType.RowOptimized)
-                return MultiplyRowOptimized(m, type);
+            if (m.Type != MatrixType.RowOptimized)
+            {
+                m = m.Reshape(MatrixType.RowOptimized);
+            }
 
-            // this is MatrixType.ColumnOptimized * MatrixType.ColumnOptimized
-
-            var result = MatrixFactory.Create(m.Columns, m.Rows, type);
+            var result = MatrixFactory.Create(m.Columns, m.Rows, MatrixType.ColumnOptimized);
 
             Parallel.For(0, rows, (row) =>
             //for (int row = 0; row < rows; row++)
             {
-                for (int column = 0; column < columns; column++)
-                {
-                    var columnIndex = (row * columns);
-                    var rowIndex = column;
-
-                    float val = 0;
-                    for (int index = 0; index < columns; index++)
-                    {
-                        if (index < columns - 10)
-                        {
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                            index += 10;
-                        }
-                        else
-                        {
-                            val += Data[columnIndex++] * m.Data[rowIndex];
-                            rowIndex += columns;
-                        }
-                    }
-                    result[row, column] = val;
-                }
-            });
-            return result;
-        }
-
-        private MatrixBase MultiplyRowOptimized(MatrixBase m, MatrixType type = MatrixType.NonOptimized)
-        {
-            // this is MatrixType.ColumnOptimized * MatrixType.RowOptimized
-
-            var result = MatrixFactory.Create(m.Columns, m.Rows, type);
-
-            Parallel.For(0, rows, (row) =>
-            //for (int row = 0; row < rows; row++)
-            {
+                var resultIndex = (row * columns);
                 for (int column = 0; column < columns; column++)
                 {
                     var columnIndex = (row * columns);
@@ -103,15 +51,50 @@ namespace Free.Matrix
                             val += Data[columnIndex++] * m.Data[rowIndex++];
                             val += Data[columnIndex++] * m.Data[rowIndex++];
                             val += Data[columnIndex++] * m.Data[rowIndex++];
-                            index += 10;
+                            index += 9;
                         }
                         else
                             val += Data[columnIndex++] * m.Data[rowIndex++];
                     }
-                    result[row, column] = val;
+                    result.Data[resultIndex] = val;
+                    resultIndex++;
                 }
             });
-            return result;
+            return result.Reshape(type);
+        }
+
+        private void CopyToRowOptimized(MatrixBase m)
+        {
+            var columnIndex = 0;
+            var rowIndex = 0;
+            for (int row = 0; row < rows; row++)
+            //Parallel.For(0, rows, (row) =>
+            {
+                for (int column = 0; column < columns; column++)
+                {
+                    m.Data[rowIndex++] = Data[columnIndex++];
+                }
+            }//);
+
+        }
+
+        public override MatrixBase Reshape(MatrixType type)
+        {
+            if (type == Type)
+                return this;
+
+            if (type == MatrixType.RowOptimized)
+            {
+                var fastCopy = MatrixFactory.Create(rows, columns, type);
+                CopyToRowOptimized(fastCopy);
+                return fastCopy;
+            }
+
+            var copy = MatrixFactory.Create(rows, columns, type);
+            for (int row = 0; row < rows; row++)
+                for (int column = 0; column < columns; column++)
+                    copy[row, column] = this[row, column];
+            return copy;
         }
 
     }

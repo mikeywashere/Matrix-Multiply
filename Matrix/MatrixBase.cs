@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Text;
-using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections;
-using System.Linq.Expressions;
 
 namespace Free.Matrix
 {
@@ -15,10 +14,11 @@ namespace Free.Matrix
     /// This is where we make the code work, then we place optimized versions of
     /// that code in the "shipping" versions of the code. Tests are run against all
     /// of the overridden methods of any inherited class.
-    /// 
+    ///
     /// Nothing should inherit from this class - this is an example of how to do
     /// matrix math correctly.
     /// </summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 64)]
     public class MatrixBase
     {
         public readonly float[] Data;
@@ -79,8 +79,8 @@ namespace Free.Matrix
             if (m == null)
                 throw new ArgumentNullException(nameof(m));
 
-            for (int row = 0; row < Rows; row++)
-                for (int column = 0; column < Columns; column++)
+            for (int row = 0; row < rows; row++)
+                for (int column = 0; column < columns; column++)
                     m[row, column] = this[row, column];
         }
 
@@ -177,10 +177,10 @@ namespace Free.Matrix
         /// <returns>Matrix multiplication results</returns>
         public virtual MatrixBase Multiply(float value)
         {
-            MatrixBase result = new ColumnOptimizedMatrix(rows, columns);
+            var result = new MatrixBase(rows, columns);
             for (int row = 0; row < rows; row++)
                 for (int column = 0; column < columns; column++)
-                    result[column, row] = this[column, row] * value;
+                    result[row, column] = this[row, column] * value;
             return result;
         }
 
@@ -194,13 +194,26 @@ namespace Free.Matrix
             MatrixBase result = new ColumnOptimizedMatrix(rows, columns);
             for (int row = 0; row < rows; row++)
                 for (int column = 0; column < columns; column++)
-                    result[column, row] = this[column, row] + value;
+                    result[row, column] = this[row, column] + value;
             return result;
         }
 
-        public IEnumerator GetEnumerator()
+        public virtual bool ExactMatch(MatrixBase m)
         {
-            return Data.GetEnumerator();
+            for (int row = 0; row < rows; row++)
+                for (int column = 0; column < columns; column++)
+                    if (this[row, column] != m[row, column])
+                        return false;
+            return true;
+        }
+
+        public virtual MatrixBase Reshape(MatrixType type)
+        {
+            var copy = MatrixFactory.Create(rows, columns, type);
+            for (int row = 0; row < rows; row++)
+                for (int column = 0; column < columns; column++)
+                    copy[row, column] = this[row, column];
+            return copy;
         }
     }
 }

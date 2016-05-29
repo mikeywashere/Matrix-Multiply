@@ -57,7 +57,8 @@ namespace Free.Matrix
 
         public static List<MatrixType> Types()
         {
-            return new List<MatrixType>(Enum.GetValues(typeof(MatrixType)).OfType<MatrixType>());
+            var x = from item in Enum.GetValues(typeof(MatrixType)).OfType<MatrixType>() orderby item.ToString() select item;
+            return new List<MatrixType>(x);
         }
     }
 }

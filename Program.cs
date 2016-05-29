@@ -46,23 +46,6 @@ namespace CSharp.Multithread.Matrix.Multiply
 
         private static void Main(string[] args)
         {
-            Stopwatch sw = Stopwatch.StartNew();
-            var mm1 = MatrixFactory.Create(1000, 1000, MatrixType.ColumnOptimized);
-            mm1.RandomFill(size, size * 2);
-
-            var mm2 = MatrixFactory.Create(1000, 1000, MatrixType.RowOptimized);
-
-            mm1.CopyTo(mm2);
-
-            sw.Stop();
-            Console.WriteLine("Step 1=" + sw.ElapsedMilliseconds);
-            sw.Restart();
-
-            mm1.Multiply(mm2, MatrixType.NonOptimized);
-            sw.Stop();
-            Console.WriteLine("Step 2=" + sw.ElapsedMilliseconds);
-            
-
             var types = from item in MatrixFactory.Types()
                         // where item != MatrixType.NonOptimized 
                         select item;
